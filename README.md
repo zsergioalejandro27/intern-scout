@@ -71,4 +71,4 @@ MIT — feel free to fork and adapt for your own job search.
 
 ## 👤 About
 
-Built by Sergio Alejandro Amaya Corzo — recent Software Engineering graduate, exploring internship and early-career opportunities across Europe. Connect on [LinkedIn](www.linkedin.com/in/sergio-alejandro-amaya-corzo-346077371) if you'd like to chat about the project or opportunities.
+Built by Sergio Alejandro Amaya Corzo — recent Software Engineering graduate, exploring internship and early-career opportunities across Europe. Connect on [LinkedIn](https://www.linkedin.com/in/sergio-alejandro-amaya-corzo-346077371) if you'd like to chat about the project or opportunities.
