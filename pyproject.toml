@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "intern-scout"
+version = "0.1.0"
+description = "Pipeline que busca internships de software engineering en Europa y notifica por Telegram"
+requires-python = ">=3.11"
+dependencies = [
+    "pymongo",
+    "python-telegram-bot",
+    "requests",
+    "beautifulsoup4",
+    "python-dotenv",
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+include = ["src*"]
