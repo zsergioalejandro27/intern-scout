@@ -66,4 +66,20 @@ Bot creado vía @BotFather (`/newbot`) → `@InternScoutSergio_bot`, con su `TEL
 
 Se creó `.env.example` (plantilla, sin valores reales — sí se sube a git) con `MONGO_URI`, `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`. Se creó `.env` local con los valores reales, y se verificó con `git status` que no aparece como untracked (el `.gitignore` ya lo excluía correctamente).
 
-**Fase 0 completa.** Siguiente: implementar el collector de Arbeitnow (Fase 1 — MVP end-to-end).
+**Fase 0 completa.**
+
+### 7. MVP end-to-end (Fase 1) — Arbeitnow
+
+Se implementó el pipeline completo, probando cada pieza con datos/credenciales reales antes de pasar a la siguiente:
+
+- `src/config.py` — carga `MONGO_URI`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` desde `.env`. Probado: las 3 variables se leen correctamente.
+- `src/collectors/arbeitnow.py` — `fetch_jobs()` trae la página 1 (250 ofertas) de la API pública. Probado con la API real.
+- `src/processing/normalizer.py` — `normalize_arbeitnow_job()` calcula `job_hash` (sha256 de título+empresa+url, para dedup), limpia el HTML de la descripción con BeautifulSoup (snippet de 300 caracteres), y convierte `created_at` a fecha. Se dejaron fuera del MVP los campos `region_tag`, `role_type`, `sponsorship_flag` del modelo de datos original (son de la Fase 3) — Mongo no exige esquema fijo, se agregan después sin migrar nada.
+- `src/db/mongo_client.py` — conecta a Atlas, base de datos `internscout`, colección `jobs`, con índice único sobre `job_hash`. Probado con ping real a Atlas.
+- `src/db/repository.py` — `insert_if_new()` (usa `DuplicateKeyError` del índice único para detectar duplicados) y `mark_notified()`. Probado con un doc de prueba (insertado, duplicado, marcado, y borrado).
+- `src/notifier/telegram_bot.py` — `send_job_notification()` usa `python-telegram-bot` (API async, envuelta con `asyncio.run()`). Probado con un mensaje real recibido en Telegram.
+- `src/main.py` — orquestador `run(seed: bool)`. La bandera `--seed` guarda los jobs sin notificar, pensada para evitar una "avalancha" de mensajes al agregar una fuente nueva (aplica también a futuras fuentes en la Fase 2).
+
+**Corrida real:** `python -m src.main --seed` sembró las 250 ofertas actuales sin notificar. Una segunda corrida `python -m src.main` (sin `--seed`) confirmó **0 nuevos / 0 mensajes**, probando que la deduplicación funciona correctamente de punta a punta.
+
+**MVP (Fase 1) completo y validado.** Siguiente, cuando se retome: Fase 2 (Adzuna, Karriere.at, Stepstone, empresas target) — explícitamente pausado hasta validar que este MVP corre bien un tiempo.
