@@ -82,4 +82,20 @@ Se implementó el pipeline completo, probando cada pieza con datos/credenciales 
 
 **Corrida real:** `python -m src.main --seed` sembró las 250 ofertas actuales sin notificar. Una segunda corrida `python -m src.main` (sin `--seed`) confirmó **0 nuevos / 0 mensajes**, probando que la deduplicación funciona correctamente de punta a punta.
 
-**MVP (Fase 1) completo y validado.** Siguiente, cuando se retome: Fase 2 (Adzuna, Karriere.at, Stepstone, empresas target) — explícitamente pausado hasta validar que este MVP corre bien un tiempo.
+**MVP (Fase 1) completo y validado.**
+
+### 8. Automatización con GitHub Actions (Fase 4)
+
+Se creó `.github/workflows/scrape.yml`: corre `python -m src.main` cada 6 horas (`0 */6 * * *`) más disparo manual (`workflow_dispatch`). Configuración manual (fuera del repo):
+- GitHub Secrets: `MONGO_URI`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+- Atlas Network Access: se agregó `0.0.0.0/0` (los runners de GitHub Actions no tienen IP fija)
+
+### 9. Bug: "Event loop is closed" en notificaciones múltiples
+
+La primera corrida manual del workflow falló (`exit code 1`, `Event loop is closed`). Causa: en `telegram_bot.py` se creaba un único `Bot` a nivel de módulo, y cada llamada a `send_job_notification()` usaba `asyncio.run()` — que crea y cierra un event loop nuevo cada vez. Al reusar el mismo `Bot` (con su cliente HTTP interno atado al primer event loop) en una segunda llamada dentro del mismo proceso, la conexión ya estaba cerrada.
+
+No se detectó en las pruebas locales porque cada prueba mandaba un solo mensaje en un proceso nuevo — nunca se probó mandar 2+ mensajes seguidos en la misma ejecución, que es justo lo que pasa en producción cuando hay varias ofertas nuevas a la vez.
+
+**Fix:** crear el `Bot` dentro de cada llamada con `async with Bot(...) as bot:`, para que el cliente HTTP se inicialice y cierre correctamente dentro del mismo event loop de cada `asyncio.run()`. Verificado localmente mandando 2 mensajes seguidos en el mismo proceso.
+
+Siguiente, cuando se retome: Fase 2 (Adzuna, Karriere.at, Stepstone, empresas target) — explícitamente pausado hasta validar que este MVP corre bien un tiempo en producción.
