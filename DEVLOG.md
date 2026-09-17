@@ -98,4 +98,18 @@ No se detectó en las pruebas locales porque cada prueba mandaba un solo mensaje
 
 **Fix:** crear el `Bot` dentro de cada llamada con `async with Bot(...) as bot:`, para que el cliente HTTP se inicialice y cierre correctamente dentro del mismo event loop de cada `asyncio.run()`. Verificado localmente mandando 2 mensajes seguidos en el mismo proceso.
 
+### 10. Filtro de rol (Fase 3, adelantada)
+
+Primera corrida automática en GitHub Actions notificó ~100 ofertas de golpe (marketing, diseño, investigación en IA no relacionada a software, etc.) — sin filtro, Arbeitnow trae ofertas de todas las industrias, no solo software. El usuario decidió pasar de "MVP mínimo" a "pulir para que traiga justo lo que busca", así que se adelantó el filtro de rol de la Fase 3.
+
+Se probó con datos reales: `tags` y `job_types` de Arbeitnow son inconsistentes (a veces vacíos, a veces con la categoría, a veces sin relación) — no sirven como filtro confiable por sí solos. Se implementó `src/processing/filters.py` con `is_relevant_role(title)`: combina keywords de dominio (software, developer, engineer, backend, frontend, devops, etc.) + nivel de entrada (intern, werkstudent, graduate, junior, trainee...) excluyendo senior/lead/staff/principal/manager. Sobre 250 ofertas reales, filtra a 4 genuinamente relevantes.
+
+`main.py` ahora filtra **antes** de guardar en Mongo (no solo antes de notificar) — así la colección `jobs` no se llena de las ~98% de ofertas irrelevantes, importante en el tier gratis de Atlas (límite de 512MB).
+
+Se limpiaron los 400 documentos irrelevantes que había sembrado la corrida anterior (sin filtro), dejando solo los 10 que sí son relevantes. Corrida real post-limpieza: 250 revisadas, 4 relevantes, 0 nuevas (ya estaban guardadas) — sin errores.
+
+**Pendiente (no bloqueante):** filtro geográfico por región prioritaria (Austria, Suiza, Nórdicos). Arbeitnow solo da la ciudad, no el país, así que necesita un mapeo ciudad→país/región aparte — por ahora todas las regiones se dejan pasar (el plan ya definía "resto de Europa como secundario", no excluido).
+
+**También pendiente:** revisar y borrar el sample dataset que Atlas cargó en el cluster (~140MB) a pesar de haberlo desmarcado — libera espacio del límite gratis de 512MB.
+
 Siguiente, cuando se retome: Fase 2 (Adzuna, Karriere.at, Stepstone, empresas target) — explícitamente pausado hasta validar que este MVP corre bien un tiempo en producción.
