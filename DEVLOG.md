@@ -112,4 +112,8 @@ Se limpiaron los 400 documentos irrelevantes que había sembrado la corrida ante
 
 **También pendiente:** revisar y borrar el sample dataset que Atlas cargó en el cluster (~140MB) a pesar de haberlo desmarcado — libera espacio del límite gratis de 512MB.
 
-Siguiente, cuando se retome: Fase 2 (Adzuna, Karriere.at, Stepstone, empresas target) — explícitamente pausado hasta validar que este MVP corre bien un tiempo en producción.
+**Confirmado en producción:** corrida manual del workflow en GitHub Actions con el filtro ya activo → ✅ Success, 0 notificaciones (correcto, coincide con la prueba local — no había ofertas relevantes nuevas). El cron de cada 6h queda corriendo solo desde acá.
+
+**InternScout está en producción:** fetch → filtro (software + entry-level) → dedupe (Mongo) → notificación (Telegram), automatizado cada 6h vía GitHub Actions, sin intervención manual.
+
+Siguiente, cuando se retome: Fase 2 (Adzuna, Karriere.at, Stepstone, empresas target) y filtro geográfico por región prioritaria — explícitamente pausado hasta validar que esto corre bien un tiempo en producción real.
