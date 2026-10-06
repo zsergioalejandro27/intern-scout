@@ -137,4 +137,20 @@ Pruebas: el collector devuelve `RawPosting`; el hash coincide con los documentos
 
 Error mío durante las pruebas: la prueba de la fuente rota usó `seed=True` y sembró en silencio 4 ofertas relevantes aún no vistas (quedaron marcadas como notificadas sin avisar). Se identificaron por su `scraped_at` (solo esas 4 eran de los últimos 15 min), se borraron y la corrida real las notificó. Lección: una prueba que escribe en la base real no debe usar `--seed` sin comprobar antes si hay ofertas nuevas.
 
-Siguiente: paso 2 (filtro por país y rol multi-idioma).
+### 13. Paso 2: filtro por país y rol multi-idioma
+
+**País.** `src/processing/geo.py` define, por cada uno de los 7 países, su nombre en varios idiomas, ciudades principales y regiones (Bundesländer, cantones, etc.). `detect_country(location)` normaliza el texto (sin tildes ni diéresis, vía `src/processing/text.py`) y busca coincidencias por palabra completa. El país lo fija el collector: Arbeitnow lo infiere de la ubicación; las fuentes propias de un país (como Suecia) lo pondrán directo. `main.py` descarta lo que no esté en `TARGET_COUNTRIES`. `PRIORITY_COUNTRIES` (todos menos Alemania) queda listo para el marcador de prioridad del paso 5.
+
+**Rol.** `src/processing/filters.py` pasa de `is_relevant_role` a `classify_role(title)`, que devuelve `internship`, `graduate` o `entry_level` (o `None`) y se guarda como `role_type` en Mongo. Cambios de fondo:
+- El inglés se compara por palabra completa y las demás lenguas por raíz (para palabras compuestas como `Softwareentwickler` o `praktikplats`). Esto corrige un defecto: antes "Internal Tools Developer" pasaba como práctica porque "internal" contiene "intern".
+- Vocabulario en alemán, sueco, noruego, finlandés, danés, y términos suizos en francés/italiano.
+- "engineer" sigue contando como señal de dominio (para no perder títulos como "Computational Geometry Engineer"), pero se excluyen disciplinas no software (mecánica, eléctrica, civil, química...), ventas/GTM, cargos senior/lead/manager y formaciones profesionales (Ausbildung, Fachinformatiker, duales Studium).
+- Se quitó "apprentice" de los niveles de entrada: un aprendizaje (Lehre) no es una práctica universitaria.
+
+**Calibración con datos reales** (325 ofertas de Arbeitnow): 150 caen en países objetivo (89 Alemania, 59 Suiza, 1 Austria); las ubicaciones sin reconocer eran casi todas Reino Unido, Francia, "Remote" o vacías (correctamente fuera). Tras el filtro de rol quedaron 3, de las cuales 2 eran falsos positivos (una formación de Fachinformatiker presentada como "Traumpraktikum" y un "Junior GTM Engineer" de ventas); se excluyeron y se agregaron como casos de test.
+
+**Tests:** `tests/test_filters.py` y `tests/test_geo.py`, 54 casos (parte del paso 7 adelantada, porque el filtro ya es lo bastante complejo para necesitarlos).
+
+**Conclusión:** con Arbeitnow solo, una página completa deja ~1 oferta relevante. El cuello de botella ahora son las fuentes, no los filtros. Corrida real: 150 en países objetivo, 1 relevante, 0 nuevas (ya guardada).
+
+Siguiente: paso 3 (fuentes nuevas: Suecia, Adzuna, empresas vía Lever/Greenhouse).

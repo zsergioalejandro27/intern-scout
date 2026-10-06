@@ -8,7 +8,7 @@ from src.collectors.base import RawPosting
 SNIPPET_LENGTH = 300
 
 
-def normalize(posting: RawPosting) -> dict:
+def normalize(posting: RawPosting, role_type: str) -> dict:
     job_hash = hashlib.sha256(
         f"{posting.title}{posting.company}{posting.url}".encode("utf-8")
     ).hexdigest()
@@ -20,6 +20,7 @@ def normalize(posting: RawPosting) -> dict:
         "company": posting.company,
         "location": posting.location,
         "country": posting.country,
+        "role_type": role_type,
         "source": posting.source,
         "url": posting.url,
         "description_snippet": description_text[:SNIPPET_LENGTH],

@@ -4,7 +4,8 @@ from src.collectors.arbeitnow import ArbeitnowCollector
 from src.collectors.base import Collector
 from src.db.repository import insert_if_new, mark_notified
 from src.notifier.telegram_bot import send_job_notification
-from src.processing.filters import is_relevant_role
+from src.processing.filters import classify_role
+from src.processing.geo import TARGET_COUNTRIES
 from src.processing.normalizer import normalize
 
 COLLECTORS: list[Collector] = [ArbeitnowCollector()]
@@ -21,15 +22,21 @@ def run(seed: bool = False) -> None:
             failed_sources.append(collector.name)
             continue
 
+        in_target_count = 0
         relevant_count = 0
         new_count = 0
 
         for posting in postings:
-            if not is_relevant_role(posting.title):
+            if posting.country not in TARGET_COUNTRIES:
+                continue
+            in_target_count += 1
+
+            role_type = classify_role(posting.title)
+            if role_type is None:
                 continue
             relevant_count += 1
 
-            job = normalize(posting)
+            job = normalize(posting, role_type)
             if not insert_if_new(job):
                 continue
 
@@ -40,7 +47,7 @@ def run(seed: bool = False) -> None:
 
         label = "sembrados (sin notificar)" if seed else "nuevos notificados"
         print(
-            f"[{collector.name}] revisados: {len(postings)} | "
+            f"[{collector.name}] revisados: {len(postings)} | en paises objetivo: {in_target_count} | "
             f"relevantes: {relevant_count} | {label}: {new_count}"
         )
 
