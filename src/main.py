@@ -1,33 +1,51 @@
 import argparse
 
-from src.collectors.arbeitnow import fetch_jobs
+from src.collectors.arbeitnow import ArbeitnowCollector
+from src.collectors.base import Collector
 from src.db.repository import insert_if_new, mark_notified
 from src.notifier.telegram_bot import send_job_notification
 from src.processing.filters import is_relevant_role
-from src.processing.normalizer import normalize_arbeitnow_job
+from src.processing.normalizer import normalize
+
+COLLECTORS: list[Collector] = [ArbeitnowCollector()]
 
 
 def run(seed: bool = False) -> None:
-    raw_jobs = fetch_jobs()
-    relevant_count = 0
-    new_count = 0
+    failed_sources = []
 
-    for raw_job in raw_jobs:
-        if not is_relevant_role(raw_job["title"]):
-            continue
-        relevant_count += 1
-
-        job = normalize_arbeitnow_job(raw_job)
-        if not insert_if_new(job):
+    for collector in COLLECTORS:
+        try:
+            postings = collector.fetch()
+        except Exception as error:
+            print(f"[{collector.name}] ERROR: {error}")
+            failed_sources.append(collector.name)
             continue
 
-        new_count += 1
-        if not seed:
-            send_job_notification(job)
-        mark_notified(job["job_hash"])
+        relevant_count = 0
+        new_count = 0
 
-    label = "sembrados (sin notificar)" if seed else "nuevos notificados"
-    print(f"Jobs revisados: {len(raw_jobs)} | Relevantes: {relevant_count} | {label}: {new_count}")
+        for posting in postings:
+            if not is_relevant_role(posting.title):
+                continue
+            relevant_count += 1
+
+            job = normalize(posting)
+            if not insert_if_new(job):
+                continue
+
+            new_count += 1
+            if not seed:
+                send_job_notification(job)
+            mark_notified(job["job_hash"])
+
+        label = "sembrados (sin notificar)" if seed else "nuevos notificados"
+        print(
+            f"[{collector.name}] revisados: {len(postings)} | "
+            f"relevantes: {relevant_count} | {label}: {new_count}"
+        )
+
+    if failed_sources:
+        raise SystemExit(f"Fuentes con error: {', '.join(failed_sources)}")
 
 
 if __name__ == "__main__":

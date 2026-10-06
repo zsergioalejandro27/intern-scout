@@ -116,4 +116,25 @@ Se limpiaron los 400 documentos irrelevantes que había sembrado la corrida ante
 
 **InternScout está en producción:** fetch → filtro (software + entry-level) → dedupe (Mongo) → notificación (Telegram), automatizado cada 6h vía GitHub Actions, sin intervención manual.
 
-Siguiente, cuando se retome: Fase 2 (Adzuna, Karriere.at, Stepstone, empresas target) y filtro geográfico por región prioritaria — explícitamente pausado hasta validar que esto corre bien un tiempo en producción real.
+### 11. Nuevo objetivo: prácticas en el extranjero (2026-10-06)
+
+Tras ~3 semanas en producción, el proyecto pasa de "avisarme de ofertas" a **conseguir prácticas de software engineering en Austria, Suiza, Noruega, Suecia, Finlandia, Dinamarca y Alemania**: pagas (lo suficiente para vivir allá), de preferencia abiertas a extranjeros (visa/relocation), con más fuentes y mensajes más completos. LinkedIn/Indeed quedan fuera (anti-scraping y ToS).
+
+Plan en 7 pasos: (1) pipeline multi-fuente, (2) filtro por país + rol multi-idioma, (3) fuentes nuevas, (4) etiquetado de salario/visa/prácticas no pagadas, (5) mensaje de Telegram completo con traducción al inglés (DeepL), (6) fuentes que requieren scraping (Noruega, Finlandia, Dinamarca, Karriere.at, jobs.ch) tras revisar sus términos, (7) pulido (`run_logs`, tests, actualizar Actions, limpiar sample dataset de Atlas).
+
+Verificado con llamadas reales antes de planear: la API abierta de Suecia (`jobsearch.api.jobtechdev.se`) funciona sin key y trae país y duración, pero casi nunca el monto del salario; las APIs públicas de Lever y Greenhouse sirven las ofertas de empresas. Aún no hay fuente limpia verificada para Noruega, Finlandia y Dinamarca.
+
+Antes de esto, el mensaje de Telegram se mejoró: ahora usa formato HTML (título en negrita, empresa y ubicación, fragmento de la descripción, enlace "Ver oferta" y fuente), escapando el texto con `html.escape`.
+
+### 12. Paso 1: pipeline multi-fuente
+
+- `src/collectors/base.py`: dataclass `RawPosting` (formato común de oferta) y clase abstracta `Collector` (`name` + `fetch() -> list[RawPosting]`). Se crea ahora porque ya se justifica: viene la segunda fuente.
+- `src/collectors/arbeitnow.py`: pasa de función a `ArbeitnowCollector`, que devuelve `RawPosting`.
+- `src/processing/normalizer.py`: `normalize(posting)` único para todas las fuentes (antes `normalize_arbeitnow_job`). El `job_hash` se calcula igual (título + empresa + URL), así que no hay duplicados. Se agregó el campo `country` al documento.
+- `src/main.py`: recorre una lista `COLLECTORS`. Si el `fetch()` de una fuente falla, imprime el error, sigue con las demás y al final termina con error (para que GitHub Actions lo marque en rojo). Los errores de Mongo o Telegram siguen abortando la corrida.
+
+Pruebas: el collector devuelve `RawPosting`; el hash coincide con los documentos ya guardados en Mongo (sin riesgo de renotificar ofertas viejas); una fuente simulada que falla no impide que Arbeitnow se procese y la corrida termina con `SystemExit`; corrida real: 325 ofertas revisadas, 6 relevantes, 4 notificadas.
+
+Error mío durante las pruebas: la prueba de la fuente rota usó `seed=True` y sembró en silencio 4 ofertas relevantes aún no vistas (quedaron marcadas como notificadas sin avisar). Se identificaron por su `scraped_at` (solo esas 4 eran de los últimos 15 min), se borraron y la corrida real las notificó. Lección: una prueba que escribe en la base real no debe usar `--seed` sin comprobar antes si hay ofertas nuevas.
+
+Siguiente: paso 2 (filtro por país y rol multi-idioma).
